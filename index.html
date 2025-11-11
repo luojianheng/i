@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级井字棋 | H5版</title>
+    <style>
+        body {
+            font-family: 'Arial Rounded MT Bold', 'Microsoft YaHei', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            color: white;
+        }
+        h1 {
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .status {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            font-weight: bold;
+            min-height: 1.5em;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .cell {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #333;
+        }
+        .cell:hover {
+            background-color: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+        }
+        .cell.x {
+            color: #ff4757; /* 红色代表X */
+        }
+        .cell.o {
+            color: #2ed573; /* 绿色代表O */
+        }
+        .reset-btn {
+            margin-top: 25px;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            background-color: white;
+            color: #667eea;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .reset-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+        .win {
+            background-color: rgba(255, 215, 0, 0.3); /* 高亮显示获胜方 */
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <h1>高级井字棋</h1>
+    <div class="status" id="status">轮到 X 下</div>
+    <div class="board" id="board">
+        <!-- 棋盘格子将由JavaScript动态生成 -->
+    </div>
+    <button class="reset-btn" onclick="resetGame()">重新开始</button>
+
+    <script>
+        // 游戏状态
+        const gameState = {
+            board: ['', '', '', '', '', '', '', '', ''], // 9格棋盘
+            currentPlayer: 'X',
+            gameOver: false,
+            scores: {
+                X: 0,
+                O: 0,
+                draws: 0
+            }
+        };
+
+        // 获胜的组合
+        const winningCombinations = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // 横线
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // 竖线
+            [0, 4, 8], [2, 4, 6]             // 对角线
+        ];
+
+        // 初始化游戏
+        function initGame() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = ''; // 清空棋盘
+
+            // 创建9个格子
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => handleCellClick(i));
+                boardElement.appendChild(cell);
+            }
+            updateStatus();
+        }
+
+        // 处理格子点击
+        function handleCellClick(index) {
+            // 如果游戏已结束或格子已被占用，则忽略点击
+            if (gameState.gameOver || gameState.board[index] !== '') {
+                return;
+            }
+
+            // 更新游戏状态
+            gameState.board[index] = gameState.currentPlayer;
+            renderBoard();
+
+            // 检查胜负
+            if (checkWin(gameState.currentPlayer)) {
+                gameState.gameOver = true;
+                gameState.scores[gameState.currentPlayer]++;
+                document.querySelector('.status').textContent = `玩家 ${gameState.currentPlayer} 获胜！🎉`;
+                highlightWinningCells();
+                updateScores();
+                return;
+            }
+
+            // 检查平局
+            if (gameState.board.every(cell => cell !== '')) {
+                gameState.gameOver = true;
+                gameState.scores.draws++;
+                document.querySelector('.status').textContent = '平局！';
+                updateScores();
+                return;
+            }
+
+            // 切换玩家
+            gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
+            updateStatus();
+        }
+
+        // 检查是否获胜
+        function checkWin(player) {
+            return winningCombinations.some(combination => {
+                return combination.every(index => {
+                    return gameState.board[index] === player;
+                });
+            });
+        }
+
+        // 高亮显示获胜的格子
+        function highlightWinningCells() {
+            const winningCombo = winningCombinations.find(combination => {
+                return combination.every(index => gameState.board[index] === gameState.currentPlayer);
+            });
+
+            if (winningCombo) {
+                winningCombo.forEach(index => {
+                    const cell = document.querySelector(`.cell[data-index="${index}"]`);
+                    cell.classList.add('win');
+                });
+            }
+        }
+
+        // 渲染棋盘
+        function renderBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = gameState.board[index];
+                if (gameState.board[index] === 'X') {
+                    cell.classList.add('x');
+                    cell.classList.remove('o');
+                } else if (gameState.board[index] === 'O') {
+                    cell.classList.add('o');
+                    cell.classList.remove('x');
+                } else {
+                    cell.classList.remove('x', 'o');
+                }
+            });
+        }
+
+        // 更新状态显示
+        function updateStatus() {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = `轮到 ${gameState.currentPlayer} 下`;
+        }
+
+        // 更新比分（可以扩展显示在状态栏）
+        function updateScores() {
+            console.log('当前比分:', gameState.scores);
+            // 在实际游戏中，可以在这里更新UI上的比分显示
+        }
+
+        // 重置游戏
+        function resetGame() {
+            gameState.board = ['', '', '', '', '', '', '', '', ''];
+            gameState.currentPlayer = 'X';
+            gameState.gameOver = false;
+            initGame();
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.remove('win'));
+        }
+
+        // 页面加载时初始化游戏
+        window.onload = initGame;
+    </script>
+</body>
+</html>
